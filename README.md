@@ -1,3 +1,6 @@
+# Note
+This library is very much a work in progress. some endpoints are not implemented and others may be incorrect.
+
 # Frontegg PHP
 
 This is a PHP client for the [Frontegg](https://frontegg.com) API.
