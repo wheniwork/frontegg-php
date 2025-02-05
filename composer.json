@@ -1,0 +1,26 @@
+{
+    "name": "wheniwork/frontegg-php",
+    "description": "PHP SDK for Frontegg",
+    "type": "library",
+    "require": {
+        "php": "^8.0",
+        "ext-json": "*",
+        "guzzlehttp/guzzle": "^7.0",
+        "lcobucci/jwt": "^4.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Frontegg\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Frontegg\\Tests\\": "tests/"
+        }
+    },
+    "license": "MIT",
+    "minimum-stability": "stable"
+}
