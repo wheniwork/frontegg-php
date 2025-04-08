@@ -14,6 +14,7 @@ use Frontegg\Exception\UnauthorizedException;
 use Frontegg\Exception\Identity\NoTokenException;
 use Frontegg\Exception\Identity\InvalidTokenException;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\SimpleCache\CacheInterface;
 
 /**
  * Main Frontegg client class with authentication capabilities
@@ -26,11 +27,24 @@ class Client
     private ?ManagementClients $management = null;
     private ?SelfServiceClients $selfService = null;
 
-    public function __construct(Config $config)
+    /**
+     * Create a new Frontegg client
+     *
+     * @param Config $config The Frontegg configuration
+     * @param CacheInterface|null $cache Optional PSR-16 cache implementation for distributed caching
+     * @param string $cachePrefix Optional prefix for cache keys
+     */
+    public function __construct(Config $config, ?CacheInterface $cache = null, string $cachePrefix = 'frontegg_')
     {
         $this->config = $config;
         $this->httpClient = new FronteggHttpClient($config);
-        $this->identityManager = new IdentityManager($config, $this->httpClient);
+        $this->identityManager = new IdentityManager($config, $this->httpClient, $cache);
+        
+        // Set custom cache prefix if provided and cache is available
+        if ($cache !== null && $cachePrefix !== 'frontegg_') {
+            $this->identityManager->setCache($cache, $cachePrefix);
+        }
+        
         $this->httpClient->setIdentityManager($this->identityManager);
     }
 
@@ -182,6 +196,18 @@ class Client
             );
         }
         return $this->selfService;
+    }
+
+    /**
+     * Set a cache implementation for the identity manager
+     * 
+     * @param CacheInterface $cache PSR-16 compatible cache implementation
+     * @param string $prefix Optional prefix for cache keys
+     * @return void
+     */
+    public function setCache(CacheInterface $cache, string $prefix = 'frontegg_'): void
+    {
+        $this->identityManager->setCache($cache, $prefix);
     }
 
     /**

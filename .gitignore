@@ -1,2 +1,3 @@
 /apis-combined.json
 vendor/
+.phpunit.result.cache

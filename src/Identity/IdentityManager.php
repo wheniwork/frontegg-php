@@ -18,6 +18,7 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use Psr\SimpleCache\CacheInterface;
 
 class IdentityManager implements FronteggAuthenticator
 {
@@ -31,11 +32,14 @@ class IdentityManager implements FronteggAuthenticator
     private ?TenantTokenClaims $tenantTokenClaims = null;
     private ?string $publicKey = null;
     private ?Configuration $jwtConfig = null;
+    private ?CacheInterface $cache = null;
+    private string $cacheKeyPrefix = 'frontegg_';
 
-    public function __construct(Config $config, FronteggHttpClient $httpClient)
+    public function __construct(Config $config, FronteggHttpClient $httpClient, ?CacheInterface $cache = null)
     {
         $this->config = $config;
         $this->httpClient = $httpClient;
+        $this->cache = $cache;
     }
 
     /**
@@ -85,10 +89,23 @@ class IdentityManager implements FronteggAuthenticator
      */
     public function getPublicKey(bool $ignoreCached = false): string
     {
+        $cacheKey = $this->cacheKeyPrefix . 'public_key';
+        
+        // Check instance cache first (for this request)
         if (!$ignoreCached && $this->publicKey !== null) {
             return $this->publicKey;
         }
+        
+        // Then check distributed cache if available
+        if (!$ignoreCached && $this->cache !== null) {
+            $cachedKey = $this->cache->get($cacheKey);
+            if ($cachedKey !== null) {
+                $this->publicKey = $cachedKey;
+                return $this->publicKey;
+            }
+        }
 
+        // If not in cache or ignoring cache, fetch from API
         // First get a vendor token
         $vendorResponse = $this->httpClient->post('/auth/vendor', [
             'json' => [
@@ -121,6 +138,11 @@ class IdentityManager implements FronteggAuthenticator
         }
 
         $this->publicKey = $publicKey;
+        
+        // Store in distributed cache if available with 12-hour TTL
+        if ($this->cache !== null) {
+            $this->cache->set($cacheKey, $publicKey, 12 * 3600);
+        }
 
         return $this->publicKey;
     }
@@ -158,6 +180,19 @@ class IdentityManager implements FronteggAuthenticator
     public function hasVendorToken(): bool
     {
         return $this->vendorToken !== null && $this->vendorTokenExpiry > time();
+    }
+
+    /**
+     * Set the cache implementation to use
+     *
+     * @param CacheInterface $cache PSR-16 compatible cache implementation
+     * @param string $prefix Optional prefix for cache keys
+     * @return void
+     */
+    public function setCache(CacheInterface $cache, string $prefix = 'frontegg_'): void
+    {
+        $this->cache = $cache;
+        $this->cacheKeyPrefix = $prefix;
     }
 
     /**
