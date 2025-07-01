@@ -19,6 +19,7 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Psr\SimpleCache\CacheInterface;
+use Firebase\JWT\JWK;
 
 class IdentityManager implements FronteggAuthenticator
 {
@@ -83,20 +84,19 @@ class IdentityManager implements FronteggAuthenticator
      * Get the public key used to verify JWT tokens
      *
      * @param bool $ignoreCached Whether to ignore the cached public key
+     * @param string|null $kid The key ID to select from the JWK set (optional)
      *
      * @return string The public key in PEM format
      * @throws HttpException
      */
-    public function getPublicKey(bool $ignoreCached = false): string
+    public function getPublicKey(bool $ignoreCached = false, ?string $kid = null): string
     {
-        $cacheKey = $this->cacheKeyPrefix . 'public_key';
-        
-        // Check instance cache first (for this request)
-        if (!$ignoreCached && $this->publicKey !== null) {
+        $cacheKey = $this->cacheKeyPrefix . 'public_key' . ($kid ? ('_' . $kid) : '');
+
+        if (!$ignoreCached && $this->publicKey !== null && ($kid === null || strpos($cacheKey, $kid) !== false)) {
             return $this->publicKey;
         }
-        
-        // Then check distributed cache if available
+
         if (!$ignoreCached && $this->cache !== null) {
             $cachedKey = $this->cache->get($cacheKey);
             if ($cachedKey !== null) {
@@ -105,45 +105,51 @@ class IdentityManager implements FronteggAuthenticator
             }
         }
 
-        // If not in cache or ignoring cache, fetch from API
-        // First get a vendor token
-        $vendorResponse = $this->httpClient->post('/auth/vendor', [
-            'json' => [
-                'clientId' => $this->config->getClientId(),
-                'secret' => $this->config->getApiKey(),
-            ],
-        ], false); // Don't require auth for vendor token
+        $jwksUrl = rtrim($this->config->getBaseUrl(), '/') . '/.well-known/jwks.json';
+        $response = $this->httpClient->get($jwksUrl, [], false, true);
 
-        if (!isset($vendorResponse['token'])) {
-            throw new HttpException('Vendor token not found in response');
+        if (!isset($response['keys']) || !is_array($response['keys']) || count($response['keys']) === 0) {
+            throw new HttpException('No keys found in JWKS response');
         }
 
-        // Now use the vendor token to get configurations
-        $response = $this->httpClient->get('/identity/resources/configurations/v1', [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $vendorResponse['token'],
-            ],
-        ], false, true); // Don't use the standard auth mechanism
-
-        if (!isset($response['publicKey'])) {
-            throw new HttpException('Public key not found in configurations response');
+        // If kid is provided, try to find the key with that kid
+        $selectedJwk = null;
+        if ($kid !== null) {
+            foreach ($response['keys'] as $jwk) {
+                if (isset($jwk['kid']) && $jwk['kid'] === $kid) {
+                    $selectedJwk = $jwk;
+                    break;
+                }
+            }
+        }
+        // If not found, fall back to the first key
+        if ($selectedJwk === null) {
+            $selectedJwk = $response['keys'][0];
         }
 
-        // Format the public key properly
-        $publicKey = $response['publicKey'];
-        if (strpos($publicKey, '-----BEGIN PUBLIC KEY-----') === false) {
-            $publicKey = "-----BEGIN PUBLIC KEY-----\n" .
-                chunk_split($publicKey, 64, "\n") .
-                "-----END PUBLIC KEY-----";
+        // Parse the selected JWK using firebase/php-jwt
+        $keys = JWK::parseKeySet(['keys' => [$selectedJwk]]);
+        $pem = null;
+        foreach ($keys as $key) {
+            if (is_resource($key)) {
+                $pem = $key;
+                break;
+            }
         }
+        if (!$pem) {
+            throw new HttpException('Failed to parse JWK to PEM');
+        }
+
+        $details = openssl_pkey_get_details($pem);
+        if (!$details || !isset($details['key'])) {
+            throw new HttpException('Failed to extract PEM from key resource');
+        }
+        $publicKey = $details['key'];
 
         $this->publicKey = $publicKey;
-        
-        // Store in distributed cache if available with 12-hour TTL
         if ($this->cache !== null) {
             $this->cache->set($cacheKey, $publicKey, 12 * 3600);
         }
-
         return $this->publicKey;
     }
 

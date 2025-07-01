@@ -3,11 +3,11 @@
 namespace Frontegg\Entities\Users\SelfService;
 
 use Frontegg\Clients\SelfService\BaseSelfServiceClient;
-use Frontegg\Exception\HttpException;
-use Frontegg\Entities\Users\User;
 use Frontegg\Entities\Users\Exception\UserAlreadyExistsException;
 use Frontegg\Entities\Users\Exception\UserNotFoundException;
 use Frontegg\Entities\Users\Exception\UserValidationException;
+use Frontegg\Entities\Users\User;
+use Frontegg\Exception\HttpException;
 
 class UsersClient extends BaseSelfServiceClient
 {
@@ -23,6 +23,7 @@ class UsersClient extends BaseSelfServiceClient
      * Update the current user's information
      *
      * @param array $data Data to update (name, phoneNumber, profilePictureUrl, metadata)
+     *
      * @return User
      * @throws HttpException
      */
@@ -51,8 +52,9 @@ class UsersClient extends BaseSelfServiceClient
     public function getProfile(): User
     {
         $userData = $this->httpClient->get('/identity/resources/users/v3/me', [
-            'headers' => $this->getHeaders()
+            'headers' => $this->getHeaders(),
         ]);
+
         return $this->createUser($userData);
     }
 
@@ -61,6 +63,7 @@ class UsersClient extends BaseSelfServiceClient
      *
      * @param string $provider MFA provider (e.g., 'sms', 'authenticator')
      * @param bool $enabled Whether to enable or disable the provider
+     *
      * @return User
      * @throws HttpException
      */
@@ -68,8 +71,9 @@ class UsersClient extends BaseSelfServiceClient
     {
         $endpoint = $enabled ? 'enable' : 'disable';
         $response = $this->httpClient->post("/identity/resources/users/v1/mfa/{$provider}/{$endpoint}", [
-            'headers' => $this->getHeaders()
+            'headers' => $this->getHeaders(),
         ]);
+
         return $this->createUser($response);
     }
 
@@ -77,7 +81,20 @@ class UsersClient extends BaseSelfServiceClient
      * Invite a new user to a tenant
      *
      * @param string $tenantId The tenant to invite the user to
-     * @param array $userData User invitation data
+     * @param array{
+     *     email: string,
+     *     name?: string,
+     *     phoneNumber?: string,
+     *     password?: string,
+     *     roleIds?: string[],
+     *     skipInviteEmail?: boolean,
+     *     provider?: 'local'|'saml'|'google'|'github'|'facebook'|'microsoft'|'scim2'|'slack'|'apple',
+     *     emailMetadata?: array,
+     *     expirationInSeconds?: int,
+     *     profilePictureUrl?: string,
+     *     metadata?: array
+     * } $userData User invitation data
+     *
      * @return User
      * @throws UserAlreadyExistsException
      * @throws UserValidationException
@@ -88,10 +105,11 @@ class UsersClient extends BaseSelfServiceClient
         try {
             $response = $this->httpClient->post('/identity/resources/users/v2', [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId
+                    'frontegg-tenant-id' => $tenantId,
                 ]),
                 'json' => $userData,
             ]);
+
             return new User($response);
         } catch (HttpException $e) {
             if ($e->getCode() === 409) {
@@ -105,10 +123,52 @@ class UsersClient extends BaseSelfServiceClient
     }
 
     /**
+     * Update a user
+     *
+     * @param string $tenantId The tenant to update the user in
+     * @param string $userId The user to update
+     * @param array{
+     *     email: string,
+     *     name: string,
+     *     phoneNumber: string,
+     *     profilePictureUrl: string,
+     *     metadata: array
+     * } $userData User data to update
+     *
+     * @return User
+     * @throws UserNotFoundException
+     * @throws UserValidationException
+     * @throws HttpException
+     */
+    public function updateUser(string $tenantId, string $userId, array $userData): User
+    {
+        try {
+            $response = $this->httpClient->put("/identity/resources/users/v1", [
+                'headers' => $this->getHeaders([
+                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-user-id' => $userId,
+                ]),
+                'json' => $userData,
+            ]);
+
+            return new User($response);
+        } catch (HttpException $e) {
+            if ($e->getCode() === 404) {
+                throw new UserNotFoundException("User not found with ID: {$userId}");
+            }
+            if ($e->getCode() === 400) {
+                throw new UserValidationException('Invalid user data: ' . $e->getMessage());
+            }
+            throw $e;
+        }
+    }
+
+    /**
      * Add roles to a user
      *
      * @param string $userId User ID to assign roles to
      * @param array $roleIds Array of role IDs to assign
+     *
      * @return bool
      * @throws UserNotFoundException
      * @throws UserValidationException
@@ -121,6 +181,7 @@ class UsersClient extends BaseSelfServiceClient
                 'headers' => $this->getHeaders(),
                 'json' => $roleIds,
             ]);
+
             return true;
         } catch (HttpException $e) {
             if ($e->getCode() === 404) {
@@ -138,6 +199,7 @@ class UsersClient extends BaseSelfServiceClient
      *
      * @param string $userId User ID to remove roles from
      * @param array $roleIds Array of role IDs to remove
+     *
      * @return bool
      * @throws UserNotFoundException
      * @throws UserValidationException
@@ -150,6 +212,7 @@ class UsersClient extends BaseSelfServiceClient
                 'headers' => $this->getHeaders(),
                 'json' => $roleIds,
             ]);
+
             return true;
         } catch (HttpException $e) {
             if ($e->getCode() === 404) {
