@@ -129,22 +129,20 @@ class IdentityManager implements FronteggAuthenticator
 
         // Parse the selected JWK using firebase/php-jwt
         $keys = JWK::parseKeySet(['keys' => [$selectedJwk]]);
-        $pem = null;
+        $publicKey = null;
         foreach ($keys as $key) {
-            if (is_resource($key)) {
-                $pem = $key;
+            if ($key instanceof \Firebase\JWT\Key) {
+                if (method_exists($key, 'getPublicKey')) {
+                    $publicKey = $key->getPublicKey();
+                } elseif (method_exists($key, 'getKeyMaterial')) {
+                    $publicKey = $key->getKeyMaterial();
+                }
                 break;
             }
         }
-        if (!$pem) {
-            throw new HttpException('Failed to parse JWK to PEM');
+        if (!$publicKey) {
+            throw new HttpException('Failed to extract PEM from Key object');
         }
-
-        $details = openssl_pkey_get_details($pem);
-        if (!$details || !isset($details['key'])) {
-            throw new HttpException('Failed to extract PEM from key resource');
-        }
-        $publicKey = $details['key'];
 
         $this->publicKey = $publicKey;
         if ($this->cache !== null) {
