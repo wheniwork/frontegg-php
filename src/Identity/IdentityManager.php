@@ -131,70 +131,53 @@ class IdentityManager implements FronteggAuthenticator
         try {
             // Extract the key ID if available
             $keyId = $selectedJwk['kid'] ?? null;
+            $keyData = null;
             
-            // Parse the JWK to get the public key
-            $jwk = $selectedJwk;
-            
-            // For RSA keys
-            if (isset($jwk['kty']) && $jwk['kty'] === 'RSA') {
-                if (!isset($jwk['n']) || !isset($jwk['e'])) {
+            // Get key material based on key type
+            if (isset($selectedJwk['kty']) && $selectedJwk['kty'] === 'RSA') {
+                // Validate RSA key has required parameters
+                if (!isset($selectedJwk['n']) || !isset($selectedJwk['e'])) {
                     throw new \Exception('RSA key missing required parameters');
                 }
                 
-                // Convert from JWK format to PEM
-                $keyData = JWK::parseKey($jwk, 'RS256');
-                
-                // In Firebase JWT 6.0+, parseKey returns a Key object
-                if ($keyData instanceof \Firebase\JWT\Key) {
-                    $keyData = $keyData->getKeyMaterial();
-                }
-                
-                // Convert OpenSSLAsymmetricKey to PEM string if needed
-                if ($keyData instanceof \OpenSSLAsymmetricKey || is_resource($keyData)) {
-                    $details = openssl_pkey_get_details($keyData);
-                    if ($details === false) {
-                        throw new \Exception('Failed to get details from OpenSSL key');
-                    }
-                    $publicKey = $details['key'];
-                } else {
-                    $publicKey = $keyData;
-                }
-                
-                // Ensure we have a string
-                if (!is_string($publicKey)) {
-                    throw new \Exception('Failed to convert key to PEM string format');
-                }
+                // For RSA keys, use the algorithm from the JWK or default to RS256
+                $alg = $selectedJwk['alg'] ?? 'RS256';
+                $keyData = JWK::parseKey($selectedJwk, $alg);
             } else {
                 // For other key types, use the parseKeySet method
                 $keys = JWK::parseKeySet(['keys' => [$selectedJwk]]);
                 
-                // Get the first key
+                // Get the key by ID or first key
                 $keyId = $keyId ?? array_key_first($keys);
                 if (!isset($keys[$keyId])) {
                     throw new \Exception('Failed to parse JWK');
                 }
                 
-                $key = $keys[$keyId];
-                $keyData = $key instanceof \Firebase\JWT\Key ? $key->getKeyMaterial() : $key;
-                
-                // Convert OpenSSLAsymmetricKey to PEM string if needed
-                if ($keyData instanceof \OpenSSLAsymmetricKey || is_resource($keyData)) {
-                    $details = openssl_pkey_get_details($keyData);
-                    if ($details === false) {
-                        throw new \Exception('Failed to get details from OpenSSL key');
-                    }
-                    $publicKey = $details['key'];
-                } else {
-                    $publicKey = $keyData;
-                }
-                
-                // Ensure we have a string
-                if (!is_string($publicKey)) {
-                    throw new \Exception('Failed to convert key to PEM string format');
-                }
+                $keyData = $keys[$keyId];
             }
             
-            if (!$publicKey) {
+            // In Firebase JWT 6.0+, parseKey/parseKeySet returns a Key object
+            if ($keyData instanceof \Firebase\JWT\Key) {
+                $keyData = $keyData->getKeyMaterial();
+            }
+            
+            // Convert OpenSSLAsymmetricKey to PEM string if needed
+            if ($keyData instanceof \OpenSSLAsymmetricKey || is_resource($keyData)) {
+                $details = openssl_pkey_get_details($keyData);
+                if ($details === false) {
+                    throw new \Exception('Failed to get details from OpenSSL key');
+                }
+                $publicKey = $details['key'];
+            } else {
+                $publicKey = $keyData;
+            }
+            
+            // Ensure we have a string
+            if (!is_string($publicKey)) {
+                throw new \Exception('Failed to convert key to PEM string format');
+            }
+            
+            if (empty($publicKey)) {
                 throw new \Exception('Failed to extract public key from JWK');
             }
         } catch (\Exception $e) {
