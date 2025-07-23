@@ -26,6 +26,7 @@ class Client
     private FronteggHttpClient $httpClient;
     private ?ManagementClients $management = null;
     private ?SelfServiceClients $selfService = null;
+    private ?string $selectedTenantId = null;
 
     /**
      * Create a new Frontegg client
@@ -39,12 +40,12 @@ class Client
         $this->config = $config;
         $this->httpClient = new FronteggHttpClient($config);
         $this->identityManager = new IdentityManager($config, $this->httpClient, $cache);
-        
+
         // Set custom cache prefix if provided and cache is available
         if ($cache !== null && $cachePrefix !== 'frontegg_') {
             $this->identityManager->setCache($cache, $cachePrefix);
         }
-        
+
         $this->httpClient->setIdentityManager($this->identityManager);
     }
 
@@ -61,6 +62,9 @@ class Client
     {
         try {
             $this->identityManager->setToken($token);
+            if ($this->hasValidUser()) {
+                $this->selectTenant($this->getUserClaims()->getTenantId());
+            }
             return true;
         } catch (InvalidTokenException $e) {
             throw new UnauthorizedException('Invalid token provided', 0, $e);
@@ -180,7 +184,8 @@ class Client
             $this->management = new ManagementClients(
                 $this->config,
                 $this->identityManager,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->management;
@@ -192,7 +197,8 @@ class Client
             $this->selfService = new SelfServiceClients(
                 $this->config,
                 $this->identityManager,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->selfService;
@@ -200,7 +206,7 @@ class Client
 
     /**
      * Set a cache implementation for the identity manager
-     * 
+     *
      * @param CacheInterface $cache PSR-16 compatible cache implementation
      * @param string $prefix Optional prefix for cache keys
      * @return void
@@ -216,5 +222,52 @@ class Client
     public function identity(): IdentityManager
     {
         return $this->identityManager;
+    }
+
+    /**
+     * Select a tenant for the current session
+     *
+     * @param string $tenantId The ID of the tenant to select
+     * @return void
+     */
+    public function selectTenant(string $tenantId): void
+    {
+        $this->selectedTenantId = $tenantId;
+        // Clear cached client instances so they get recreated with the new tenant ID
+        $this->management = null;
+        $this->selfService = null;
+    }
+
+    /**
+     * Get the ID of the currently selected tenant
+     *
+     * @return string|null The ID of the selected tenant, or null if no tenant is selected
+     */
+    public function getSelectedTenantId(): ?string
+    {
+        return $this->selectedTenantId;
+    }
+
+    /**
+     * Check if a tenant is currently selected
+     *
+     * @return bool True if a tenant is selected, false otherwise
+     */
+    public function hasSelectedTenant(): bool
+    {
+        return $this->selectedTenantId !== null;
+    }
+
+    /**
+     * Clear the currently selected tenant
+     *
+     * @return void
+     */
+    public function clearSelectedTenant(): void
+    {
+        $this->selectedTenantId = null;
+        // Clear cached client instances so they get recreated without the tenant ID
+        $this->management = null;
+        $this->selfService = null;
     }
 }

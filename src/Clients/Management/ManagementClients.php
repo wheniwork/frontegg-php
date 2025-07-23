@@ -16,6 +16,7 @@ class ManagementClients
     private Config $config;
     private FronteggAuthenticator $authenticator;
     private FronteggHttpClient $httpClient;
+    private ?string $selectedTenantId = null;
 
     private ?UsersClient $users = null;
     private ?EntitlementsClient $entitlements = null;
@@ -26,11 +27,13 @@ class ManagementClients
     public function __construct(
         Config $config,
         FronteggAuthenticator $authenticator,
-        FronteggHttpClient $httpClient
+        FronteggHttpClient $httpClient,
+        ?string $selectedTenantId = null
     ) {
         $this->config = $config;
         $this->authenticator = $authenticator;
         $this->httpClient = $httpClient;
+        $this->selectedTenantId = $selectedTenantId;
     }
 
     public function users(): UsersClient
@@ -39,7 +42,8 @@ class ManagementClients
             $this->users = new UsersClient(
                 $this->config,
                 $this->authenticator,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->users;
@@ -51,7 +55,8 @@ class ManagementClients
             $this->entitlements = new EntitlementsClient(
                 $this->config,
                 $this->authenticator,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->entitlements;
@@ -63,7 +68,8 @@ class ManagementClients
             $this->tenants = new TenantsClient(
                 $this->config,
                 $this->authenticator,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->tenants;
@@ -75,7 +81,8 @@ class ManagementClients
             $this->audits = new AuditsClient(
                 $this->config,
                 $this->authenticator,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->audits;
@@ -87,7 +94,8 @@ class ManagementClients
             $this->roles = new RolesClient(
                 $this->config,
                 $this->authenticator,
-                $this->httpClient
+                $this->httpClient,
+                $this->selectedTenantId
             );
         }
         return $this->roles;

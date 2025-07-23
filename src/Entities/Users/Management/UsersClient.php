@@ -62,17 +62,19 @@ class UsersClient extends BaseManagementClient
      * Delete a user
      *
      * @param string $userId User ID to delete
-     * @param string $tenantId Tenant ID the user belongs to
+     * @param string|null $tenantId Tenant ID the user belongs to (optional if tenant is selected globally)
      * @return bool
      * @throws UserNotFoundException
      * @throws HttpException
      */
-    public function deleteUser(string $userId, string $tenantId): bool
+    public function deleteUser(string $userId, ?string $tenantId = null): bool
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $this->httpClient->delete("/identity/resources/users/v1/{$userId}", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId
+                    'frontegg-tenant-id' => $resolvedTenantId
                 ])
             ]);
             return true;
@@ -88,19 +90,21 @@ class UsersClient extends BaseManagementClient
      * Add roles to a user
      *
      * @param string $userId User ID to assign roles to
-     * @param string $tenantId Tenant ID the user belongs to
      * @param array $roleIds Array of role IDs to assign
+     * @param string|null $tenantId Tenant ID the user belongs to (optional if tenant is selected globally)
      * @return bool
      * @throws UserNotFoundException
      * @throws UserValidationException
      * @throws HttpException
      */
-    public function addRolesToUser(string $userId, string $tenantId, array $roleIds): bool
+    public function addRolesToUser(string $userId, array $roleIds, ?string $tenantId = null): bool
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $this->httpClient->post("/identity/resources/users/v1/{$userId}/roles", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId
+                    'frontegg-tenant-id' => $resolvedTenantId
                 ]),
                 'json' => $roleIds,
             ]);
@@ -120,19 +124,21 @@ class UsersClient extends BaseManagementClient
      * Remove roles from a user
      *
      * @param string $userId User ID to remove roles from
-     * @param string $tenantId Tenant ID the user belongs to
      * @param array $roleIds Array of role IDs to remove
+     * @param string|null $tenantId Tenant ID the user belongs to (optional if tenant is selected globally)
      * @return bool
      * @throws UserNotFoundException
      * @throws UserValidationException
      * @throws HttpException
      */
-    public function removeRolesFromUser(string $userId, string $tenantId, array $roleIds): bool
+    public function removeRolesFromUser(string $userId, array $roleIds, ?string $tenantId = null): bool
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $this->httpClient->delete("/identity/resources/users/v1/{$userId}/roles", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId
+                    'frontegg-tenant-id' => $resolvedTenantId
                 ]),
                 'json' => $roleIds,
             ]);

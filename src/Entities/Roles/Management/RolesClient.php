@@ -13,17 +13,19 @@ class RolesClient extends BaseManagementClient
     /**
      * Get all roles for a tenant
      *
-     * @param string $tenantId The tenant ID to get roles for
+     * @param string|null $tenantId The tenant ID to get roles for (optional if tenant is selected globally)
      * @return array Array of role objects
      * @throws RolesNotFoundException
      * @throws HttpException
      */
-    public function getRoles(string $tenantId): array
+    public function getRoles(?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->get('/identity/resources/roles/v1', [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
             ]);
 
@@ -36,19 +38,21 @@ class RolesClient extends BaseManagementClient
     /**
      * Create new roles
      *
-     * @param string $tenantId The tenant ID to create roles for
      * @param array $rolesData Array of role data objects
+     * @param string|null $tenantId The tenant ID to create roles for (optional if tenant is selected globally)
      * @return array Array of created role objects
      * @throws RoleAlreadyExistsException
      * @throws RoleValidationException
      * @throws HttpException
      */
-    public function createRoles(string $tenantId, array $rolesData): array
+    public function createRoles(array $rolesData, ?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->post('/identity/resources/roles/v1', [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
                 'json' => $rolesData,
             ]);
@@ -68,20 +72,22 @@ class RolesClient extends BaseManagementClient
     /**
      * Update an existing role
      *
-     * @param string $tenantId The tenant ID
      * @param string $roleId The role ID to update
      * @param array $roleData Updated role data
+     * @param string|null $tenantId The tenant ID (optional if tenant is selected globally)
      * @return array Updated role object
      * @throws RolesNotFoundException
      * @throws RoleValidationException
      * @throws HttpException
      */
-    public function updateRole(string $tenantId, string $roleId, array $roleData): array
+    public function updateRole(string $roleId, array $roleData, ?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->patch("/identity/resources/roles/v1/{$roleId}", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
                 'json' => $roleData,
             ]);
@@ -101,18 +107,20 @@ class RolesClient extends BaseManagementClient
     /**
      * Delete a role
      *
-     * @param string $tenantId The tenant ID
      * @param string $roleId The role ID to delete
+     * @param string|null $tenantId The tenant ID (optional if tenant is selected globally)
      * @return bool True on successful deletion
      * @throws RolesNotFoundException
      * @throws HttpException
      */
-    public function deleteRole(string $tenantId, string $roleId): bool
+    public function deleteRole(string $roleId, ?string $tenantId = null): bool
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $this->httpClient->delete("/identity/resources/roles/v1/{$roleId}", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
             ]);
 
@@ -128,19 +136,21 @@ class RolesClient extends BaseManagementClient
     /**
      * Set permissions for a role
      *
-     * @param string $tenantId The tenant ID
      * @param string $roleId The role ID
      * @param array $permissionIds Array of permission IDs to assign to the role
+     * @param string|null $tenantId The tenant ID (optional if tenant is selected globally)
      * @return array Updated role object with permissions
      * @throws RolesNotFoundException
      * @throws HttpException
      */
-    public function setRolePermissions(string $tenantId, string $roleId, array $permissionIds): array
+    public function setRolePermissions(string $roleId, array $permissionIds, ?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->put("/identity/resources/roles/v1/{$roleId}/permissions", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
                 'json' => ['permissionIds' => $permissionIds],
             ]);
@@ -157,19 +167,21 @@ class RolesClient extends BaseManagementClient
     /**
      * Add permissions to a role
      *
-     * @param string $tenantId The tenant ID
      * @param string $roleId The role ID
      * @param array $permissionIds Array of permission IDs to add to the role
+     * @param string|null $tenantId The tenant ID (optional if tenant is selected globally)
      * @return array Updated role object with permissions
      * @throws RolesNotFoundException
      * @throws HttpException
      */
-    public function addRolePermissions(string $tenantId, string $roleId, array $permissionIds): array
+    public function addRolePermissions(string $roleId, array $permissionIds, ?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->post("/identity/resources/roles/v1/{$roleId}/permissions", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
                 'json' => ['permissionIds' => $permissionIds],
             ]);
@@ -186,19 +198,21 @@ class RolesClient extends BaseManagementClient
     /**
      * Remove permissions from a role
      *
-     * @param string $tenantId The tenant ID
      * @param string $roleId The role ID
      * @param array $permissionIds Array of permission IDs to remove from the role
+     * @param string|null $tenantId The tenant ID (optional if tenant is selected globally)
      * @return array Updated role object with permissions
      * @throws RolesNotFoundException
      * @throws HttpException
      */
-    public function removeRolePermissions(string $tenantId, string $roleId, array $permissionIds): array
+    public function removeRolePermissions(string $roleId, array $permissionIds, ?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->delete("/identity/resources/roles/v1/{$roleId}/permissions", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
                 'json' => ['permissionIds' => $permissionIds],
             ]);
@@ -215,18 +229,20 @@ class RolesClient extends BaseManagementClient
     /**
      * Get permissions for a specific role
      *
-     * @param string $tenantId The tenant ID
      * @param string $roleId The role ID
+     * @param string|null $tenantId The tenant ID (optional if tenant is selected globally)
      * @return array Array of permission objects for the role
      * @throws RolesNotFoundException
      * @throws HttpException
      */
-    public function getRolePermissions(string $tenantId, string $roleId): array
+    public function getRolePermissions(string $roleId, ?string $tenantId = null): array
     {
+        $resolvedTenantId = $this->resolveTenantId($tenantId);
+        
         try {
             $response = $this->httpClient->get("/identity/resources/roles/v1/{$roleId}/permissions", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $tenantId,
+                    'frontegg-tenant-id' => $resolvedTenantId,
                 ]),
             ]);
 
