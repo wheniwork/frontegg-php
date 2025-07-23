@@ -4,6 +4,7 @@ namespace Frontegg\Clients\Management;
 
 use Frontegg\Authenticator\FronteggAuthenticator;
 use Frontegg\Config\Config;
+use Frontegg\Entities\Roles\Management\RolesClient;
 use Frontegg\Http\FronteggHttpClient;
 use Frontegg\Entities\Users\Management\UsersClient;
 use Frontegg\Entities\Entitlements\Management\EntitlementsClient;
@@ -20,6 +21,7 @@ class ManagementClients
     private ?EntitlementsClient $entitlements = null;
     private ?TenantsClient $tenants = null;
     private ?AuditsClient $audits = null;
+    private ?RolesClient $roles = null;
 
     public function __construct(
         Config $config,
@@ -77,5 +79,17 @@ class ManagementClients
             );
         }
         return $this->audits;
+    }
+
+    public function roles(): RolesClient
+    {
+        if ($this->roles === null) {
+            $this->roles = new RolesClient(
+                $this->config,
+                $this->authenticator,
+                $this->httpClient
+            );
+        }
+        return $this->roles;
     }
 }
