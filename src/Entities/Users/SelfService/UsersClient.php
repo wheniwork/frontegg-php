@@ -80,6 +80,7 @@ class UsersClient extends BaseSelfServiceClient
     /**
      * Invite a new user to a tenant
      *
+     * @param string $tenantId The tenant to invite the user to
      * @param array{
      *     email: string,
      *     name?: string,
@@ -93,21 +94,18 @@ class UsersClient extends BaseSelfServiceClient
      *     profilePictureUrl?: string,
      *     metadata?: array
      * } $userData User invitation data
-     * @param string|null $tenantId The tenant to invite the user to (optional if tenant is selected globally)
      *
      * @return User
      * @throws UserAlreadyExistsException
      * @throws UserValidationException
      * @throws HttpException
      */
-    public function inviteUser(array $userData, ?string $tenantId = null): User
+    public function inviteUser(string $tenantId, array $userData): User
     {
-        $resolvedTenantId = $this->resolveTenantId($tenantId);
-        
         try {
             $response = $this->httpClient->post('/identity/resources/users/v2', [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $resolvedTenantId,
+                    'frontegg-tenant-id' => $tenantId,
                 ]),
                 'json' => $userData,
             ]);
@@ -127,7 +125,7 @@ class UsersClient extends BaseSelfServiceClient
     /**
      * Update a user
      *
-     * @param string|null $tenantId The tenant to update the user in (optional if tenant is selected globally)
+     * @param string $tenantId The tenant to update the user in
      * @param string $userId The user to update
      * @param array{
      *     email: string,
@@ -142,14 +140,12 @@ class UsersClient extends BaseSelfServiceClient
      * @throws UserValidationException
      * @throws HttpException
      */
-    public function updateUser(?string $tenantId, string $userId, array $userData): User
+    public function updateUser(string $tenantId, string $userId, array $userData): User
     {
-        $resolvedTenantId = $this->resolveTenantId($tenantId);
-        
         try {
             $response = $this->httpClient->put("/identity/resources/users/v1", [
                 'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $resolvedTenantId,
+                    'frontegg-tenant-id' => $tenantId,
                     'frontegg-user-id' => $userId,
                 ]),
                 'json' => $userData,
@@ -170,7 +166,6 @@ class UsersClient extends BaseSelfServiceClient
     /**
      * Add roles to a user
      *
-     * @param string|null $tenantId The tenant to add roles to (optional if tenant is selected globally)
      * @param string $userId User ID to assign roles to
      * @param array $roleIds Array of role IDs to assign
      *
@@ -179,15 +174,11 @@ class UsersClient extends BaseSelfServiceClient
      * @throws UserValidationException
      * @throws HttpException
      */
-    public function addRolesToUser(?string $tenantId, string $userId, array $roleIds): bool
+    public function addRolesToUser(string $userId, array $roleIds): bool
     {
-        $resolvedTenantId = $this->resolveTenantId($tenantId);
-        
         try {
             $this->httpClient->post("/identity/resources/users/v1/{$userId}/roles", [
-                'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $resolvedTenantId,
-                ]),
+                'headers' => $this->getHeaders(),
                 'json' => $roleIds,
             ]);
 
@@ -206,7 +197,6 @@ class UsersClient extends BaseSelfServiceClient
     /**
      * Remove roles from a user
      *
-     * @param string|null $tenantId The tenant to remove roles from (optional if tenant is selected globally)
      * @param string $userId User ID to remove roles from
      * @param array $roleIds Array of role IDs to remove
      *
@@ -215,15 +205,11 @@ class UsersClient extends BaseSelfServiceClient
      * @throws UserValidationException
      * @throws HttpException
      */
-    public function removeRolesFromUser(?string $tenantId, string $userId, array $roleIds): bool
+    public function removeRolesFromUser(string $userId, array $roleIds): bool
     {
-        $resolvedTenantId = $this->resolveTenantId($tenantId);
-        
         try {
             $this->httpClient->delete("/identity/resources/users/v1/{$userId}/roles", [
-                'headers' => $this->getHeaders([
-                    'frontegg-tenant-id' => $resolvedTenantId,
-                ]),
+                'headers' => $this->getHeaders(),
                 'json' => $roleIds,
             ]);
 
