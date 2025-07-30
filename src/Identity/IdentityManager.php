@@ -93,7 +93,7 @@ class IdentityManager implements FronteggAuthenticator
     {
         $cacheKey = $this->cacheKeyPrefix . 'public_key' . ($kid ? ('_' . $kid) : '');
 
-        if (!$ignoreCached && $this->publicKey !== null && ($kid === null || strpos($cacheKey, $kid) !== false)) {
+        if (!$ignoreCached && $this->publicKey !== null && ($kid === null || str_contains($cacheKey, $kid))) {
             return $this->publicKey;
         }
 
@@ -132,35 +132,35 @@ class IdentityManager implements FronteggAuthenticator
             // Extract the key ID if available
             $keyId = $selectedJwk['kid'] ?? null;
             $keyData = null;
-            
+
             // Get key material based on key type
             if (isset($selectedJwk['kty']) && $selectedJwk['kty'] === 'RSA') {
                 // Validate RSA key has required parameters
                 if (!isset($selectedJwk['n']) || !isset($selectedJwk['e'])) {
                     throw new \Exception('RSA key missing required parameters');
                 }
-                
+
                 // For RSA keys, use the algorithm from the JWK or default to RS256
                 $alg = $selectedJwk['alg'] ?? 'RS256';
                 $keyData = JWK::parseKey($selectedJwk, $alg);
             } else {
                 // For other key types, use the parseKeySet method
                 $keys = JWK::parseKeySet(['keys' => [$selectedJwk]]);
-                
+
                 // Get the key by ID or first key
                 $keyId = $keyId ?? array_key_first($keys);
                 if (!isset($keys[$keyId])) {
                     throw new \Exception('Failed to parse JWK');
                 }
-                
+
                 $keyData = $keys[$keyId];
             }
-            
+
             // In Firebase JWT 6.0+, parseKey/parseKeySet returns a Key object
             if ($keyData instanceof \Firebase\JWT\Key) {
                 $keyData = $keyData->getKeyMaterial();
             }
-            
+
             // Convert OpenSSLAsymmetricKey to PEM string if needed
             if ($keyData instanceof \OpenSSLAsymmetricKey || is_resource($keyData)) {
                 $details = openssl_pkey_get_details($keyData);
@@ -171,12 +171,12 @@ class IdentityManager implements FronteggAuthenticator
             } else {
                 $publicKey = $keyData;
             }
-            
+
             // Ensure we have a string
             if (!is_string($publicKey)) {
                 throw new \Exception('Failed to convert key to PEM string format');
             }
-            
+
             if (empty($publicKey)) {
                 throw new \Exception('Failed to extract public key from JWK');
             }
@@ -532,5 +532,15 @@ class IdentityManager implements FronteggAuthenticator
         }
 
         return $claims;
+    }
+
+    /**
+     * Set the public key for JWT token validation
+     *
+     * @param string|null $publicKey The public key to use for validation
+     */
+    public function setPublicKey(?string $publicKey): void
+    {
+        $this->publicKey = $publicKey;
     }
 }
